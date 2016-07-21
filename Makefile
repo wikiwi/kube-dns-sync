@@ -19,6 +19,7 @@ GLIDE ?= glide
 GIT ?= git
 DOCKER ?= docker
 GOVER ?= gover
+GITHUB_RELEASE ?= github-release
 
 # Glide Options
 GLIDE_OPTS ?=
@@ -102,6 +103,17 @@ test-with-coverage:
 	cd pkg && go list -f "{{if len .TestGoFiles}}go test -coverpkg=\"${COVER_PACKAGES}\" -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}};{{end}}" ./... | sh
 	cd test && go list -f "{{if len .TestGoFiles}}go test -coverpkg=\"${COVER_PACKAGES}\" -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}};{{end}}" ./... | sh
 	${GOVER}
+
+.PHONY: github-release
+github-release:
+ifdef IS_DIRTY
+	$(error Current trunk is marked dirty)
+endif
+ifndef IS_RELEASE
+	@echo "Skipping release as this commit is not tagged as one"
+else
+	${GITHUB_RELEASE} release -u "${GITHUB_USER}" -r "${GITHUB_REPO}" -t "${GIT_TAG}" -n "${GIT_TAG}" $$(test -n "${VERSION_STAGE}" && echo --pre-release) || true
+endif
 
 # bootstrap will install project dependencies.
 .PHONY: bootstrap
