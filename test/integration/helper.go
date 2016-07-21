@@ -10,7 +10,7 @@ package integration
 import (
 	"github.com/onsi/gomega"
 
-	"github.com/cvle/kube-dns-sync/pkg/controller"
+	"github.com/wikiwi/kube-dns-sync/pkg/controller"
 )
 
 // runAndReportExit runs given Controller, expects err=nil, and notifies channel report.

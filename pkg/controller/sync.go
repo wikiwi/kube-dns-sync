@@ -17,7 +17,7 @@ import (
 	"k8s.io/kubernetes/federation/pkg/dnsprovider/rrstype"
 	"k8s.io/kubernetes/pkg/api"
 
-	k8sutil "github.com/cvle/kube-dns-sync/pkg/util/kubernetes"
+	k8sutil "github.com/wikiwi/kube-dns-sync/pkg/util/kubernetes"
 )
 
 // sync starts the syncing process.

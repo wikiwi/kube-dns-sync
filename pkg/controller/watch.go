@@ -19,7 +19,7 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/watch"
 
-	k8sutil "github.com/cvle/kube-dns-sync/pkg/util/kubernetes"
+	k8sutil "github.com/wikiwi/kube-dns-sync/pkg/util/kubernetes"
 )
 
 // watch watches the Kubernetes API and requests a sync when a change was detected.

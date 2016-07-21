@@ -14,7 +14,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/cvle/kube-dns-sync/pkg/version"
+	"github.com/wikiwi/kube-dns-sync/pkg/version"
 )
 
 var opts struct {

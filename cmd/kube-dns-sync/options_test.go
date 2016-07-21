@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cvle/kube-dns-sync/pkg/version"
+	"github.com/wikiwi/kube-dns-sync/pkg/version"
 )
 
 func TestVersion(t *testing.T) {

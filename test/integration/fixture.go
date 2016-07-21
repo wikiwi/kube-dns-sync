@@ -11,7 +11,7 @@ import (
 	"k8s.io/kubernetes/federation/pkg/dnsprovider/rrstype"
 	"k8s.io/kubernetes/pkg/api"
 
-	"github.com/cvle/kube-dns-sync/pkg/util/kubernetes/dnsproviderfake"
+	"github.com/wikiwi/kube-dns-sync/pkg/util/kubernetes/dnsproviderfake"
 )
 
 // k8sFixture is added as the initial Kubernetes resources for the integration tests.

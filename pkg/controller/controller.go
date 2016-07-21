@@ -18,7 +18,7 @@ import (
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/client/unversioned"
 
-	k8sutil "github.com/cvle/kube-dns-sync/pkg/util/kubernetes"
+	k8sutil "github.com/wikiwi/kube-dns-sync/pkg/util/kubernetes"
 )
 
 // Options for creating a new Controller.
