@@ -1,0 +1,28 @@
+package: github.com/wikiwi/kube-dns-sync
+import:
+- package: github.com/Sirupsen/logrus
+  version: ^0.10.0
+- package: github.com/jessevdk/go-flags
+  version: ^1.0.0
+- package: github.com/kr/pretty
+- package: github.com/onsi/gomega
+  version: ^1.0.0
+- package: gopkg.in/yaml.v2
+- package: k8s.io/kubernetes
+  version: ^1.4.0-alpha.1
+  subpackages:
+  - federation/pkg/dnsprovider
+  - federation/pkg/dnsprovider/providers/aws/route53
+  - federation/pkg/dnsprovider/providers/google/clouddns
+  - federation/pkg/dnsprovider/rrstype
+  - pkg/api
+  - pkg/client/cache
+  - pkg/client/unversioned
+  - pkg/client/unversioned/clientcmd
+  - pkg/client/unversioned/testclient
+  - pkg/controller/framework
+  - pkg/runtime
+  - pkg/watch
+testImport:
+- package: github.com/onsi/ginkgo
+  version: ^1.2.0
