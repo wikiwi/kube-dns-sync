@@ -3,7 +3,7 @@ import:
 - package: github.com/Sirupsen/logrus
   version: ^0.10.0
 - package: github.com/jessevdk/go-flags
-  version: ^1.0.0
+  version: master
 - package: github.com/kr/pretty
 - package: github.com/onsi/gomega
   version: ^1.0.0
