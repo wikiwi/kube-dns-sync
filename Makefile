@@ -68,7 +68,11 @@ build-for-docker: ${BINARIES:%= bin/linux/amd64/%}
 # docker-build will build the docker image.
 .PHONY: docker-build
 docker-build: build-for-docker
-	${DOCKER} build --pull -t ${IMAGE} .
+	${DOCKER} build --pull -t ${IMAGE} \
+		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+		--build-arg VCS_REF=${GIT_SHA} \
+		--build-arg VCS_VERSION=${BUILD_VERSION} \
+		.
 
 # docker-push will push all tags to the repository
 .PHONY: docker-push
