@@ -5,6 +5,8 @@ ARG BUILD_URL
 ARG VCS_REF
 ARG VCS_VERSION
 
+RUN apk add --no-cache ca-certificates
+
 LABEL org.label-schema.build-date=${BUILD_DATE} \
       org.label-schema.vcs-ref=${VCS_REF} \
       org.label-schema.vcs-version=${VCS_VERSION} \
