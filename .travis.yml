@@ -51,6 +51,7 @@ after_success:
       docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
       make docker-build;
       make docker-push;
+      curl -X POST "${MICROBADGER_URL}";
     fi
   - if [ -n "${TRAVIS_TAG}" ]; then
       make github-release;
