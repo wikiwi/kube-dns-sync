@@ -8,10 +8,7 @@
 package integration
 
 import (
-	"k8s.io/kubernetes/federation/pkg/dnsprovider/rrstype"
 	"k8s.io/kubernetes/pkg/api"
-
-	"github.com/wikiwi/kube-dns-sync/pkg/util/kubernetes/dnsproviderfake"
 )
 
 // k8sFixture is added as the initial Kubernetes resources for the integration tests.
@@ -66,13 +63,5 @@ var k8sFixture = []api.Node{
 				Status: api.ConditionTrue,
 			}},
 		},
-	},
-}
-
-// dnsFixture is added as the initial DNS resources for the integration tests.
-var dnsFixture = []dnsproviderfake.ResourceRecordSetFake{
-	dnsproviderfake.ResourceRecordSetFake{
-		RRSName: "garbage",
-		RRSType: rrstype.A,
 	},
 }

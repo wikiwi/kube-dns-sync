@@ -24,15 +24,39 @@ import (
 	"github.com/wikiwi/kube-dns-sync/pkg/util/kubernetes/dnsproviderfake"
 )
 
+type Test struct {
+	ControllerOptions controller.Options
+	Modify            func(c *controller.Controller)
+	Expected          []dnsprovider.ResourceRecordSet
+}
+
+func (t Test) Run(rrs dnsprovider.ResourceRecordSets) {
+	c, err := controller.New(&t.ControllerOptions)
+	Expect(err).To(BeNil())
+	report := make(chan struct{})
+	go runAndReportExit(c, report)
+	time.Sleep(1 * time.Second)
+	if t.Modify != nil {
+		t.Modify(c)
+	}
+	ls, err := rrs.List()
+	Expect(err).To(BeNil())
+	if !k8sutil.EqualRRSList(ls, t.Expected) {
+		pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", t.Expected)
+		pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
+		Fail("Unexpected DNS Records")
+	}
+	c.Stop()
+	waitForReport(report)
+}
+
 var _ = Describe("Controller", func() {
 
 	var client *kubeFake
 	var dns *dnsproviderfake.Fake
 	var rrs dnsprovider.ResourceRecordSets
-	var report chan struct{}
 
 	BeforeEach(func() {
-		report = make(chan struct{})
 		client = newKubeFake(k8sFixture...)
 		dns = &dnsproviderfake.Fake{}
 		zones, supported := dns.Zones()
@@ -43,428 +67,335 @@ var _ = Describe("Controller", func() {
 		Expect(err).To(BeNil())
 		rrs, supported = zone.ResourceRecordSets()
 		Expect(supported).To(BeTrue())
-		for _, x := range dnsFixture {
-			rrs.Add(&x)
-		}
-	})
-
-	It("should remove unknown records", func() {
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		for _, x := range ls {
-			Expect(x.Name()).NotTo(Equal("garbage"))
-		}
-		c.Stop()
-		waitForReport(report)
 	})
 
 	It("should sync external IPs", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
+			},
+		}.Run(rrs)
 	})
 
 	It("should sync internal IPs", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.internalip.test.com.", RRSTTL: 300, RRSDatas: []string{"127.0.0.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.internalip.test.com.", RRSTTL: 300, RRSDatas: []string{"127.0.0.1"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "internalip.test.com.", RRSTTL: 300, RRSDatas: []string{"127.0.0.1", "127.0.0.4"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeInternalIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "internalip.test.com.", RRSTTL: 60, RRSDatas: []string{"127.0.0.1", "127.0.0.4"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeInternalIP},
+			},
+		}.Run(rrs)
 	})
 
 	It("should sync legacy IPs", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node2.legacyhostip.test.com.", RRSTTL: 300, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "legacyhostip.test.com.", RRSTTL: 300, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeLegacyHostIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
-	})
-
-	It("should sync accept different TTL values", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.internalip.test.com.", RRSTTL: 300, RRSDatas: []string{"127.0.0.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.internalip.test.com.", RRSTTL: 300, RRSDatas: []string{"127.0.0.1"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "internalip.test.com.", RRSTTL: 300, RRSDatas: []string{"127.0.0.1", "127.0.0.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node2.legacyhostip.test.com.", RRSTTL: 300, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "legacyhostip.test.com.", RRSTTL: 300, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP, api.NodeInternalIP, api.NodeLegacyHostIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "legacyhostip.test.com.", RRSTTL: 60, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeLegacyHostIP},
+			},
+		}.Run(rrs)
 	})
 
 	It("should sync different kind of addresses", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node2.legacyhostip.test.com.", RRSTTL: 200, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "legacyhostip.test.com.", RRSTTL: 200, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          200,
-			AddressTypes: []api.NodeAddressType{api.NodeLegacyHostIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "internalip.test.com.", RRSTTL: 60, RRSDatas: []string{"127.0.0.1", "127.0.0.4"}, RRSType: rrstype.A},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "legacyhostip.test.com.", RRSTTL: 60, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP, api.NodeInternalIP, api.NodeLegacyHostIP},
+			},
+		}.Run(rrs)
+	})
+
+	It("should sync different kind TTL values", func() {
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "legacyhostip.test.com.", RRSTTL: 200, RRSDatas: []string{"2.2.2.2"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          200,
+				AddressTypes: []api.NodeAddressType{api.NodeLegacyHostIP},
+			},
+		}.Run(rrs)
 	})
 
 	It("should resync when DNS record changed out of band", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-			SyncInterval: 500 * time.Millisecond,
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		rrs.Remove(&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.externalip.test.com."})
-		rrs.Add(&dnsproviderfake.ResourceRecordSetFake{RRSName: "garbage.test.com.", RRSType: rrstype.A})
-		time.Sleep(1 * time.Second)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
+				SyncInterval: 500 * time.Millisecond,
+			},
+			Modify: func(c *controller.Controller) {
+				rrs.Remove(&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSType: rrstype.A})
+				rrs.Add(&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 200, RRSDatas: []string{"2.2.2.2", "4.4.4.4"}, RRSType: rrstype.A})
+				time.Sleep(1 * time.Second)
+			},
+		}.Run(rrs)
 	})
 
 	It("should remove Node when it is becomes not ready", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		client.ModifyNode(api.Node{
-			ObjectMeta: api.ObjectMeta{Name: "node1"},
-			Status: api.NodeStatus{
-				Addresses: []api.NodeAddress{
-					api.NodeAddress{Type: api.NodeExternalIP, Address: "1.1.1.1"},
-					api.NodeAddress{Type: api.NodeInternalIP, Address: "127.0.0.1"},
-				},
-				Conditions: []api.NodeCondition{api.NodeCondition{
-					Type:   api.NodeReady,
-					Status: api.ConditionFalse,
-				}},
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
 			},
-		})
-		time.Sleep(500 * time.Millisecond)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
+				SyncInterval: 500 * time.Millisecond,
+			},
+			Modify: func(c *controller.Controller) {
+				client.ModifyNode(api.Node{
+					ObjectMeta: api.ObjectMeta{Name: "node1"},
+					Status: api.NodeStatus{
+						Addresses: []api.NodeAddress{
+							api.NodeAddress{Type: api.NodeExternalIP, Address: "1.1.1.1"},
+							api.NodeAddress{Type: api.NodeInternalIP, Address: "127.0.0.1"},
+						},
+						Conditions: []api.NodeCondition{api.NodeCondition{
+							Type:   api.NodeReady,
+							Status: api.ConditionFalse,
+						}},
+					},
+				})
+				time.Sleep(500 * time.Millisecond)
+			},
+		}.Run(rrs)
 	})
 
 	It("should remove Node when it gets deleted", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		client.DeleteNode("node1")
-		time.Sleep(500 * time.Millisecond)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
+				SyncInterval: 500 * time.Millisecond,
+			},
+			Modify: func(c *controller.Controller) {
+				client.DeleteNode("node1")
+				time.Sleep(500 * time.Millisecond)
+			},
+		}.Run(rrs)
 	})
 
 	It("should add Node when one gets created", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node5.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"5.5.5.5"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1", "4.4.4.4", "5.5.5.5"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		client.AddNode(api.Node{
-			ObjectMeta: api.ObjectMeta{Name: "node5"},
-			Status: api.NodeStatus{
-				Addresses: []api.NodeAddress{
-					api.NodeAddress{Type: api.NodeExternalIP, Address: "5.5.5.5"},
-				},
-				Conditions: []api.NodeCondition{api.NodeCondition{
-					Type:   api.NodeReady,
-					Status: api.ConditionTrue,
-				}},
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4", "5.5.5.5"}, RRSType: rrstype.A},
 			},
-		})
-		time.Sleep(500 * time.Millisecond)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
+				SyncInterval: 500 * time.Millisecond,
+			},
+			Modify: func(c *controller.Controller) {
+				client.AddNode(api.Node{
+					ObjectMeta: api.ObjectMeta{Name: "node5"},
+					Status: api.NodeStatus{
+						Addresses: []api.NodeAddress{
+							api.NodeAddress{Type: api.NodeExternalIP, Address: "5.5.5.5"},
+						},
+						Conditions: []api.NodeCondition{api.NodeCondition{
+							Type:   api.NodeReady,
+							Status: api.ConditionTrue,
+						}},
+					},
+				})
+				time.Sleep(500 * time.Millisecond)
+			},
+		}.Run(rrs)
 	})
 
 	It("should update IP when it changes", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"6.6.6.6"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"6.6.6.6", "4.4.4.4"}, RRSType: rrstype.A},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-			SyncInterval: 500 * time.Millisecond,
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		client.ModifyNode(api.Node{
-			ObjectMeta: api.ObjectMeta{Name: "node1"},
-			Status: api.NodeStatus{
-				Addresses: []api.NodeAddress{
-					api.NodeAddress{Type: api.NodeExternalIP, Address: "6.6.6.6"},
-					api.NodeAddress{Type: api.NodeInternalIP, Address: "127.0.0.6"},
-				},
-				Conditions: []api.NodeCondition{api.NodeCondition{
-					Type:   api.NodeReady,
-					Status: api.ConditionTrue,
-				}},
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"6.6.6.6", "4.4.4.4"}, RRSType: rrstype.A},
 			},
-		})
-		time.Sleep(500 * time.Millisecond)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
+				SyncInterval: 500 * time.Millisecond,
+			},
+			Modify: func(c *controller.Controller) {
+				client.ModifyNode(api.Node{
+					ObjectMeta: api.ObjectMeta{Name: "node1"},
+					Status: api.NodeStatus{
+						Addresses: []api.NodeAddress{
+							api.NodeAddress{Type: api.NodeExternalIP, Address: "6.6.6.6"},
+							api.NodeAddress{Type: api.NodeInternalIP, Address: "127.0.0.6"},
+						},
+						Conditions: []api.NodeCondition{api.NodeCondition{
+							Type:   api.NodeReady,
+							Status: api.ConditionTrue,
+						}},
+					},
+				})
+				time.Sleep(500 * time.Millisecond)
+			},
+		}.Run(rrs)
+	})
+
+	It("should sync to apex zone when configured", func() {
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:     dns,
+				ZoneName:        "test.com.",
+				Client:          client,
+				TTL:             60,
+				ApexAddressType: api.NodeExternalIP,
+				SyncInterval:    500 * time.Millisecond,
+			},
+		}.Run(rrs)
+	})
+
+	It("should sync to apex zone and another address-type when configured", func() {
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "internalip.test.com.", RRSTTL: 60, RRSDatas: []string{"127.0.0.1", "127.0.0.4"}, RRSType: rrstype.A},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:     dns,
+				ZoneName:        "test.com.",
+				Client:          client,
+				TTL:             60,
+				AddressTypes:    []api.NodeAddressType{api.NodeInternalIP},
+				ApexAddressType: api.NodeExternalIP,
+				SyncInterval:    500 * time.Millisecond,
+			},
+		}.Run(rrs)
+	})
+
+	It("should sync to apex zone and same address-type when configured", func() {
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:     dns,
+				ZoneName:        "test.com.",
+				Client:          client,
+				TTL:             60,
+				AddressTypes:    []api.NodeAddressType{api.NodeExternalIP},
+				ApexAddressType: api.NodeExternalIP,
+				SyncInterval:    500 * time.Millisecond,
+			},
+		}.Run(rrs)
 	})
 
 	It("should not touch Resources of other Types", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node1.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepit.test.com.", RRSType: rrstype.CNAME},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-			SyncInterval: 500 * time.Millisecond,
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		rrs.Add(&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepit.test.com.", RRSType: rrstype.CNAME})
-		time.Sleep(500 * time.Millisecond)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"1.1.1.1", "4.4.4.4"}, RRSType: rrstype.A},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepitCNAME.test.com.", RRSType: rrstype.CNAME},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepitA.test.com.", RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
+				SyncInterval: 500 * time.Millisecond,
+			},
+			Modify: func(c *controller.Controller) {
+				rrs.Add(&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepitCNAME.test.com.", RRSType: rrstype.CNAME})
+				rrs.Add(&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepitA.test.com.", RRSType: rrstype.A})
+				time.Sleep(600 * time.Millisecond)
+			},
+		}.Run(rrs)
 	})
 
 	It("should deal with sequence of changes", func() {
-		expected := []dnsprovider.ResourceRecordSet{
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "node6.externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"6.6.6.6"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 300, RRSDatas: []string{"6.6.6.6", "4.4.4.4"}, RRSType: rrstype.A},
-			&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepit.test.com.", RRSType: rrstype.CNAME},
-		}
-		c, err := controller.New(&controller.Options{
-			DNSProvider:  dns,
-			ZoneName:     "test.com.",
-			Client:       client,
-			TTL:          300,
-			AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
-			SyncInterval: 500 * time.Millisecond,
-		})
-		Expect(err).To(BeNil())
-		go runAndReportExit(c, report)
-		time.Sleep(1 * time.Second)
-		client.DeleteNode("node1")
-		rrs.Add(&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepit.test.com.", RRSType: rrstype.CNAME})
-		rrs.Remove(&dnsproviderfake.ResourceRecordSetFake{RRSName: "node4.externalip.test.com."})
-		time.Sleep(500 * time.Millisecond)
-		rrs.Add(&dnsproviderfake.ResourceRecordSetFake{RRSName: "garbage.test.com.", RRSType: rrstype.A})
-		time.Sleep(500 * time.Millisecond)
-		client.AddNode(api.Node{
-			ObjectMeta: api.ObjectMeta{Name: "node6"},
-			Status: api.NodeStatus{
-				Addresses: []api.NodeAddress{
-					api.NodeAddress{Type: api.NodeExternalIP, Address: "6.6.6.6"},
-					api.NodeAddress{Type: api.NodeInternalIP, Address: "127.0.0.6"},
-				},
-				Conditions: []api.NodeCondition{api.NodeCondition{
-					Type:   api.NodeReady,
-					Status: api.ConditionTrue,
-				}},
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"6.6.6.6", "4.4.4.4"}, RRSType: rrstype.A},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "internalip.test.com.", RRSTTL: 60, RRSDatas: []string{"127.0.0.4", "127.0.0.6"}, RRSType: rrstype.A},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "test.com.", RRSTTL: 60, RRSDatas: []string{"6.6.6.6", "4.4.4.4"}, RRSType: rrstype.A},
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepit.test.com.", RRSType: rrstype.A},
 			},
-		})
-		time.Sleep(500 * time.Millisecond)
-		ls, err := rrs.List()
-		Expect(err).To(BeNil())
-		if !k8sutil.EqualRRSList(ls, expected) {
-			pretty.Fprintf(GinkgoWriter, "# Expected Value:\n%# v\n\n", expected)
-			pretty.Fprintf(GinkgoWriter, "# Received Value:\n%# v\n", ls)
-			Fail("Unexpected DNS Records")
-		}
-		c.Stop()
-		waitForReport(report)
-	})
+			ControllerOptions: controller.Options{
+				DNSProvider:     dns,
+				ZoneName:        "test.com.",
+				Client:          client,
+				TTL:             60,
+				AddressTypes:    []api.NodeAddressType{api.NodeExternalIP, api.NodeInternalIP},
+				SyncInterval:    500 * time.Millisecond,
+				ApexAddressType: api.NodeExternalIP,
+			},
+			Modify: func(c *controller.Controller) {
+				client.DeleteNode("node1")
+				rrs.Add(&dnsproviderfake.ResourceRecordSetFake{RRSName: "keepit.test.com.", RRSType: rrstype.A})
+				time.Sleep(500 * time.Millisecond)
+				rrs.Remove(&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com."})
+				time.Sleep(500 * time.Millisecond)
+				client.AddNode(api.Node{
+					ObjectMeta: api.ObjectMeta{Name: "node6"},
+					Status: api.NodeStatus{
+						Addresses: []api.NodeAddress{
+							api.NodeAddress{Type: api.NodeExternalIP, Address: "6.6.6.6"},
+							api.NodeAddress{Type: api.NodeInternalIP, Address: "127.0.0.6"},
+						},
+						Conditions: []api.NodeCondition{api.NodeCondition{
+							Type:   api.NodeReady,
+							Status: api.ConditionTrue,
+						}},
+					},
+				})
+				time.Sleep(500 * time.Millisecond)
 
+			},
+		}.Run(rrs)
+	})
 })

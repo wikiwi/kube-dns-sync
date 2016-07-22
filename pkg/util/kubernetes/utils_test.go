@@ -112,3 +112,21 @@ func TestIsNodeReady(t *testing.T) {
 		}
 	}
 }
+
+func TestStringToAddressType(t *testing.T) {
+	testScenarios := []struct {
+		input  string
+		output api.NodeAddressType
+	}{
+		{input: "internalip", output: api.NodeInternalIP},
+		{input: "ExternalIP", output: api.NodeExternalIP},
+		{input: "LEGACYhostip", output: api.NodeLegacyHostIP},
+		{input: "invalid", output: ""},
+	}
+	for _, x := range testScenarios {
+		output := StringToAddressType(x.input)
+		if output != x.output {
+			t.Errorf("expect %v, but was %v", x.output, output)
+		}
+	}
+}

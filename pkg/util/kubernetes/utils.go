@@ -11,6 +11,7 @@ package kubernetes
 import (
 	"reflect"
 	"sort"
+	"strings"
 
 	"k8s.io/kubernetes/federation/pkg/dnsprovider"
 	"k8s.io/kubernetes/pkg/api"
@@ -84,4 +85,18 @@ func IsNodeReady(node *api.Node) bool {
 		}
 	}
 	return false
+}
+
+// StringToAddressType converts a string to a NodeAddressType, ignores case.
+func StringToAddressType(s string) api.NodeAddressType {
+	norm := strings.ToLower(s)
+	switch norm {
+	case "externalip":
+		return api.NodeExternalIP
+	case "internalip":
+		return api.NodeInternalIP
+	case "legacyhostip":
+		return api.NodeLegacyHostIP
+	}
+	return ""
 }

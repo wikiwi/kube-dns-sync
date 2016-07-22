@@ -95,7 +95,7 @@ endif
 # clean deletes build artifacts from the project.
 .PHONY: clean
 clean:
-	rm -rf bin artifacts
+	rm -rf bin
 
 # test will start the project test suites.
 .PHONY: test

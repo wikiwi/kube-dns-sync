@@ -50,18 +50,18 @@ func (c *Controller) sync() error {
 		return fmt.Errorf("Zone %q doesn't support ResourceRecordSets", c.zoneName)
 	}
 
-	validARecords := c.validResourceRecordSets(rrs)
-	return c.syncARecordSets(validARecords, rrs)
+	managedRecords := c.managedResourceRecordSets(rrs)
+	return c.syncRecordSets(managedRecords, rrs)
 }
 
-// syncARecordSets will sync given list of A RecordSets to the DNS Provider.
-func (c *Controller) syncARecordSets(validARecords []dnsprovider.ResourceRecordSet, rrs dnsprovider.ResourceRecordSets) error {
+// syncRecordSets will sync given list of RecordSets to the DNS Provider.
+func (c *Controller) syncRecordSets(managedRecords []dnsprovider.ResourceRecordSet, rrs dnsprovider.ResourceRecordSets) error {
 	c.log.Infof("Sync A Records")
 	recordList, err := rrs.List()
 	if err != nil {
 		return err
 	}
-	for _, record := range validARecords {
+	for _, record := range managedRecords {
 		create := true
 		for _, x := range recordList {
 			if x.Type() != rrstype.A {
@@ -88,38 +88,33 @@ func (c *Controller) syncARecordSets(validARecords []dnsprovider.ResourceRecordS
 			}
 		}
 	}
-	// Remove undefined records.
-	for _, record := range recordList {
-		if record.Type() != rrstype.A {
-			continue
-		}
-		delete := true
-		for _, x := range validARecords {
-			if x.Name() == record.Name() {
-				delete = false
-				break
-			}
-		}
-		if delete {
-			c.log.Infof("Deleting A Record %q", record.Name())
-			err := rrs.Remove(record)
-			if err != nil {
-				return err
-			}
-		}
-	}
+
 	return nil
 }
 
-// validResourceRecordSets returns a list of expected ResourceRecordSets.
-func (c *Controller) validResourceRecordSets(rrs dnsprovider.ResourceRecordSets) []dnsprovider.ResourceRecordSet {
+// managedResourceRecordSets returns a list of managed ResourceRecordSets.
+func (c *Controller) managedResourceRecordSets(rrs dnsprovider.ResourceRecordSets) []dnsprovider.ResourceRecordSet {
 	var nodes []*api.Node
 	for _, x := range c.cache.List() {
 		nodes = append(nodes, x.(*api.Node))
 	}
 
+	addressTypes := c.addressTypes
+	apexInGroup := false
+	if c.apexAddressType != "" {
+		for _, x := range c.addressTypes {
+			if c.apexAddressType == x {
+				apexInGroup = true
+				break
+			}
+		}
+		if !apexInGroup {
+			addressTypes = append(addressTypes, c.apexAddressType)
+		}
+	}
+
 	sets := []dnsprovider.ResourceRecordSet{}
-	for _, addressType := range c.addressTypes {
+	for _, addressType := range addressTypes {
 		typeString := strings.ToLower(string(addressType))
 		groupAddresses := []string{}
 		for _, node := range nodes {
@@ -135,17 +130,20 @@ func (c *Controller) validResourceRecordSets(rrs dnsprovider.ResourceRecordSets)
 			if len(addresses) == 0 {
 				continue
 			}
-			name := node.Name + "." + typeString + "." + c.zoneName
-			record := rrs.New(name, addresses, c.ttl, rrstype.A)
-			sets = append(sets, record)
 			groupAddresses = append(groupAddresses, addresses...)
 		}
 		if len(groupAddresses) == 0 {
 			continue
 		}
-		name := typeString + "." + c.zoneName
-		record := rrs.New(name, groupAddresses, c.ttl, rrstype.A)
-		sets = append(sets, record)
+		if addressType == c.apexAddressType {
+			record := rrs.New(c.zoneName, groupAddresses, c.ttl, rrstype.A)
+			sets = append(sets, record)
+		}
+		if addressType != c.apexAddressType || apexInGroup {
+			name := typeString + "." + c.zoneName
+			record := rrs.New(name, groupAddresses, c.ttl, rrstype.A)
+			sets = append(sets, record)
+		}
 	}
 	return sets
 }

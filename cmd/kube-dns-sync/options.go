@@ -22,8 +22,9 @@ var opts struct {
 	DNSProviderConfig flags.Filename `long:"dns-provider-config" env:"KDS_PROVIDER_CONFIG" description:"Path to config file for configuring DNS provider"`
 	ZoneName          string         `long:"zone-name" env:"KDS_ZONE_NAME" description:"Zone name, like example.com" required:"yes"`
 	SyncInterval      time.Duration  `long:"sync-interval" default:"60s" env:"KDS_INTERVAL" description:"Interval for syncing with the DNS Provider"`
-	TTL               int64          `long:"ttl" default:"300" env:"KDS_TTL" description:"TTL value of DNS Records"`
-	AddressTypes      addressTypes   `long:"address-types" default:"externalip" env:"KDS_ADDRESS_TYPES" description:"Comma list of address types to export [externalip|internalip|legacyhostip]"`
+	TTL               int64          `long:"ttl" default:"60" env:"KDS_TTL" description:"TTL value of DNS Records"`
+	AddressTypes      addressTypes   `long:"address-types" env:"KDS_ADDRESS_TYPES" description:"Comma list of address types to sync [externalip|internalip|legacyhostip]"`
+	ApexAddressType   string         `long:"apex-address-type" env:"KDS_APEX_ADDRESS_TYPE" description:"Address type that is synced to the Apex Zone" choice:"externalip" choice:"internalip" choice:"legacyhostip"`
 	Version           func()         `yaml:"-" long:"version" short:"v" description:"show version number"`
 }
 
