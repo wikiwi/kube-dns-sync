@@ -3,15 +3,28 @@
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
 
-###  Configuration ###
-GO_PACKAGE     ?= github.com/wikiwi/kube-dns-sync
-REPOSITORY     ?= wikiwi/kube-dns-sync
+### GitHub settings ###
+GITHUB_USER ?= wikiwi
+GITHUB_REPO ?= kube-dns-sync
 
-### Docker Tag settings ###
+### Docker settings ###
+DOCKER_REPO    ?= wikiwi/kube-dns-sync
 LATEST_VERSION := 0.1
 
-### Coverage settings ###
+### GO settings ###
+GO_PACKAGE  ?= github.com/${GITHUB_USER}/${GITHUB_REPO}
+
+# Glide options
+GLIDE_OPTS ?=
+GLIDE_GLOBAL_OPTS ?=
+
+# Coverage settings
 COVER_PACKAGES = $(shell cd pkg && go list -f '{{.ImportPath}}' ./... | tr '\n' ',' | sed 's/.$$//')
+
+### CI Settings ###
+# Set branch with most current HEAD of master e.g. master or origin/master.
+# E.g. Gitlab doesn't pull the master branch but fetches it to origin/master.
+MASTER_BRANCH ?= master
 
 ### Build Tools ###
 GO ?= go
@@ -20,15 +33,6 @@ GIT ?= git
 DOCKER ?= docker
 GOVER ?= gover
 GITHUB_RELEASE ?= github-release
-
-# Glide Options
-GLIDE_OPTS ?=
-GLIDE_GLOBAL_OPTS ?=
-
-### CI Settings ###
-# Set branch with most current HEAD of master e.g. master or origin/master.
-# E.g. Gitlab doesn't pull the master branch but fetches it to origin/master.
-MASTER_BRANCH ?= master
 
 ### Environment ###
 HAS_GLIDE := $(shell command -v ${GLIDE};)
@@ -42,7 +46,7 @@ BINARIES := $(notdir $(wildcard cmd/*))
 include Makefile.versioning
 
 # Docker Image info.
-IMAGE := ${REPOSITORY}:${BUILD_REF}
+IMAGE := ${DOCKER_REPO}:${BUILD_REF}
 
 # Show build info.
 info:
@@ -72,13 +76,14 @@ docker-build: build-for-docker
 		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg VCS_REF=${GIT_SHA} \
 		--build-arg VCS_VERSION=${BUILD_VERSION} \
+		--build-arg BUILD_URL=$$(test -n "$${TRAVIS_BUILD_ID}" && echo https://travis-ci.org/${GITHUB_USER}/${GITHUB_REPO}/builds/$${TRAVIS_BUILD_ID}) \
 		.
 
 # docker-push will push all tags to the repository
 .PHONY: docker-push
 docker-push: ${TAGS:%=docker-push-%}
 docker-push-%:
-	${DOCKER} tag ${IMAGE} ${REPOSITORY}:$* && docker push ${REPOSITORY}:$*
+	${DOCKER} tag ${IMAGE} ${DOCKER_REPO}:$* && docker push ${DOCKER_REPO}:$*
 
 .PHONY: has-tags
 has-tags:
