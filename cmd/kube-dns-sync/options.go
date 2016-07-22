@@ -24,7 +24,7 @@ var opts struct {
 	SyncInterval      time.Duration  `long:"sync-interval" default:"60s" env:"KDS_INTERVAL" description:"Interval for syncing with the DNS Provider"`
 	TTL               int64          `long:"ttl" default:"300" env:"KDS_TTL" description:"TTL value of DNS Records"`
 	AddressTypes      addressTypes   `long:"address-types" default:"externalip" env:"KDS_ADDRESS_TYPES" description:"Comma list of address types to export [externalip|internalip|legacyhostip]"`
-	Version           func()         `long:"version" short:"v" description:"show version number"`
+	Version           func()         `yaml:"-" long:"version" short:"v" description:"show version number"`
 }
 
 func init() {
