@@ -54,7 +54,7 @@ func main() {
 		SyncInterval:    opts.SyncInterval,
 		AddressTypes:    opts.AddressTypes,
 		ApexAddressType: api.NodeAddressType(opts.ApexAddressType),
-		Selector:        opts.Selector,
+		Selector:        opts.SelectorType.Selector,
 	})
 	if err != nil {
 		panic(err)
