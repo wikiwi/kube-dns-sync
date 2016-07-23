@@ -66,6 +66,16 @@ type selectorType struct {
 	labels.Selector
 }
 
+func (s selectorType) MarshalYAML() (interface{}, error) {
+	return s.MarshalFlag()
+}
+
+func (s *selectorType) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var value string
+	unmarshal(&value)
+	return s.UnmarshalFlag(value)
+}
+
 func (s selectorType) MarshalFlag() (string, error) {
 	if s.Selector == nil {
 		return "", nil
