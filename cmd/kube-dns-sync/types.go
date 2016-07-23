@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/labels"
 )
 
 type addressTypes []api.NodeAddressType
@@ -59,4 +60,24 @@ func (a *addressType) UnmarshalFlag(value string) error {
 		}
 	}
 	return fmt.Errorf("Invalid value %q", value)
+}
+
+type selectorType struct {
+	labels.Selector
+}
+
+func (s selectorType) MarshalFlag() (string, error) {
+	if s.Selector == nil {
+		return "", nil
+	}
+	return s.String(), nil
+}
+
+func (s *selectorType) UnmarshalFlag(value string) error {
+	sel, err := labels.Parse(value)
+	if err != nil {
+		return err
+	}
+	s.Selector = sel
+	return nil
 }

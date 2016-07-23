@@ -25,6 +25,7 @@ var opts struct {
 	TTL               int64          `long:"ttl" default:"60" env:"KDS_TTL" description:"TTL value of DNS Records"`
 	AddressTypes      addressTypes   `long:"address-types" env:"KDS_ADDRESS_TYPES" description:"Comma list of address types to sync [externalip|internalip|legacyhostip]"`
 	ApexAddressType   addressType    `long:"apex-address-type" env:"KDS_APEX_ADDRESS_TYPE" description:"Address type that is synced to the Apex Zone" choice:"externalip" choice:"internalip" choice:"legacyhostip"`
+	Selector          selectorType   `long:"selector" env:"KDS_SELECTOR" description:"Node selector e.g. 'cloud.google.com/gke-nodepool=default-pool'"`
 	Version           func()         `yaml:"-" long:"version" short:"v" description:"show version number"`
 }
 

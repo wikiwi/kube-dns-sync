@@ -398,4 +398,21 @@ var _ = Describe("Controller", func() {
 			},
 		}.Run(rrs)
 	})
+
+	It("should filter Nodes using selectors", func() {
+		Test{
+			Expected: []dnsprovider.ResourceRecordSet{
+				&dnsproviderfake.ResourceRecordSetFake{RRSName: "externalip.test.com.", RRSTTL: 60, RRSDatas: []string{"4.4.4.4"}, RRSType: rrstype.A},
+			},
+			ControllerOptions: controller.Options{
+				DNSProvider:  dns,
+				ZoneName:     "test.com.",
+				Client:       client,
+				TTL:          60,
+				AddressTypes: []api.NodeAddressType{api.NodeExternalIP},
+				SyncInterval: 500 * time.Millisecond,
+				Selector:     parseSelectorOrDie("foo=bar"),
+			},
+		}.Run(rrs)
+	})
 })

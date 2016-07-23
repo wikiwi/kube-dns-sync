@@ -51,8 +51,14 @@ func (c *Controller) watch() {
 
 	store, controller := framework.NewInformer(
 		&cache.ListWatch{
-			ListFunc:  func(opts api.ListOptions) (runtime.Object, error) { return c.client.Nodes().List(opts) },
-			WatchFunc: func(opts api.ListOptions) (watch.Interface, error) { return c.client.Nodes().Watch(opts) },
+			ListFunc: func(opts api.ListOptions) (runtime.Object, error) {
+				opts.LabelSelector = c.selector
+				return c.client.Nodes().List(opts)
+			},
+			WatchFunc: func(opts api.ListOptions) (watch.Interface, error) {
+				opts.LabelSelector = c.selector
+				return c.client.Nodes().Watch(opts)
+			},
 		},
 		&api.Node{},
 		resyncPeriod,

@@ -90,3 +90,30 @@ func TestAddressType(t *testing.T) {
 		}
 	}
 }
+
+func TestSelectorType(t *testing.T) {
+	testScenarios := []struct {
+		input string
+		err   bool
+	}{
+		{input: "environment in (production,qa)"},
+		{input: "foo=bar"},
+		{input: ""},
+	}
+	for _, x := range testScenarios {
+		t.Log(pretty.Sprint(x))
+		var a selectorType
+		err := a.UnmarshalFlag(x.input)
+		if x.err && err == nil {
+			t.Errorf("error unmarshalling: %q", err)
+		}
+		marshalled, err := a.MarshalFlag()
+		if err != nil {
+			t.Errorf("error marshalling: %q", err)
+			continue
+		}
+		if marshalled != x.input {
+			t.Errorf("%q != %q", marshalled, x.input)
+		}
+	}
+}

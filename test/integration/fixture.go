@@ -52,7 +52,7 @@ var k8sFixture = []api.Node{
 		},
 	},
 	{
-		ObjectMeta: api.ObjectMeta{Name: "node4"},
+		ObjectMeta: api.ObjectMeta{Name: "node4", Labels: map[string]string{"foo": "bar"}},
 		Status: api.NodeStatus{
 			Addresses: []api.NodeAddress{
 				api.NodeAddress{Type: api.NodeExternalIP, Address: "4.4.4.4"},

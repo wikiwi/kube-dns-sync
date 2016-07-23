@@ -17,6 +17,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/labels"
 
 	k8sutil "github.com/wikiwi/kube-dns-sync/pkg/util/kubernetes"
 )
@@ -45,6 +46,9 @@ type Options struct {
 	// ApexAddressType defines which address should be sync to the apex zone,
 	// required when AddressTypes is not set.
 	ApexAddressType api.NodeAddressType
+
+	// Selector to target only specific Nodes.
+	Selector labels.Selector
 }
 
 // New creates a new Controller.
@@ -66,6 +70,7 @@ func New(opts *Options) (*Controller, error) {
 	c.client = opts.Client
 	c.addressTypes = opts.AddressTypes
 	c.apexAddressType = opts.ApexAddressType
+	c.selector = opts.Selector
 	c.syncInterval = opts.SyncInterval
 	c.stopCh = make(chan struct{})
 	c.syncCh = make(chan struct{})
@@ -100,6 +105,7 @@ type Controller struct {
 	addressTypes    []api.NodeAddressType
 	apexAddressType api.NodeAddressType
 	cache           cache.Store
+	selector        labels.Selector
 }
 
 // Run starts the Controller Controller in an endless loop.

@@ -11,6 +11,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/wikiwi/kube-dns-sync/pkg/controller"
+	"k8s.io/kubernetes/pkg/labels"
 )
 
 // runAndReportExit runs given Controller, expects err=nil, and notifies channel report.
@@ -23,4 +24,13 @@ func runAndReportExit(c *controller.Controller, report chan struct{}) {
 // waitForReport wait for report to be triggered, timeout when it takes longer than 1s.
 func waitForReport(report chan struct{}) {
 	gomega.Eventually(func() interface{} { return <-report })
+}
+
+// parseSelectorOrDie will parse s as Selector or panics on error.
+func parseSelectorOrDie(s string) labels.Selector {
+	sel, err := labels.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return sel
 }
