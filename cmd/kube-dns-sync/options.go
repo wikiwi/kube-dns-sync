@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
 
 	"github.com/wikiwi/kube-dns-sync/pkg/version"
@@ -26,12 +27,16 @@ var opts struct {
 	AddressTypes      addressTypes   `long:"address-types" env:"KDS_ADDRESS_TYPES" description:"Comma list of address types to sync [externalip|internalip|legacyhostip]"`
 	ApexAddressType   addressType    `long:"apex-address-type" env:"KDS_APEX_ADDRESS_TYPE" description:"Address type that is synced to the Apex Zone" choice:"externalip" choice:"internalip" choice:"legacyhostip"`
 	Selector          selectorType   `long:"selector" env:"KDS_SELECTOR" description:"Node selector e.g. 'cloud.google.com/gke-nodepool=default-pool'"`
-	Version           func()         `yaml:"-" long:"version" short:"v" description:"show version number"`
+	Verbose           func()         `yaml:"-" long:"verbose"  description:"Turn on verbose logging"`
+	Version           func()         `yaml:"-" long:"version" short:"v" description:"Show version number"`
 }
 
 func init() {
 	opts.Version = func() {
 		fmt.Println(version.Version)
 		os.Exit(0)
+	}
+	opts.Verbose = func() {
+		logrus.SetLevel(logrus.DebugLevel)
 	}
 }
