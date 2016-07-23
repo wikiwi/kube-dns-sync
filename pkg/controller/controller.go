@@ -43,7 +43,7 @@ type Options struct {
 	AddressTypes []api.NodeAddressType
 
 	// ApexAddressType defines which address should be sync to the apex zone,
-	// required when AddressTypes is not set..
+	// required when AddressTypes is not set.
 	ApexAddressType api.NodeAddressType
 }
 

@@ -24,18 +24,58 @@ func TestAddressTypes(t *testing.T) {
 	}{
 		{input: "externalip", expect: []api.NodeAddressType{api.NodeExternalIP}},
 		{input: "externalip,internalip", expect: []api.NodeAddressType{api.NodeExternalIP, api.NodeInternalIP}},
-		{input: "", expect: []api.NodeAddressType{}},
-		{input: "invalid", expect: []api.NodeAddressType{}, err: true},
+		{input: "", expect: nil},
+		{input: "invalid", expect: nil, err: true},
 	}
 	for _, x := range testScenarios {
 		t.Log(pretty.Sprint(x))
-		a := &addressTypes{}
+		var a addressTypes
 		err := a.UnmarshalFlag(x.input)
 		if x.err && err == nil {
 			t.Errorf("error unmarshalling: %q", err)
 		}
-		if !reflect.DeepEqual(x.expect, a.Types) {
-			t.Errorf("%v", pretty.Diff(x.expect, a.Types))
+
+		types := []api.NodeAddressType(a)
+		if !reflect.DeepEqual(x.expect, types) {
+			t.Errorf("%v", pretty.Diff(x.expect, types))
+		}
+		if err != nil {
+			continue
+		}
+		marshalled, err := a.MarshalFlag()
+		if err != nil {
+			t.Errorf("error marshalling: %q", err)
+			continue
+		}
+		if marshalled != x.input {
+			t.Errorf("%q != %q", marshalled, x.input)
+		}
+	}
+}
+
+func TestAddressType(t *testing.T) {
+	testScenarios := []struct {
+		input  string
+		expect api.NodeAddressType
+		err    bool
+	}{
+		{input: "externalip", expect: api.NodeExternalIP},
+		{input: "internalip", expect: api.NodeInternalIP},
+		{input: "legacyhostip", expect: api.NodeLegacyHostIP},
+		{input: "", expect: ""},
+		{input: "invalid", expect: "", err: true},
+	}
+	for _, x := range testScenarios {
+		t.Log(pretty.Sprint(x))
+		var a addressType
+		err := a.UnmarshalFlag(x.input)
+		if x.err && err == nil {
+			t.Errorf("error unmarshalling: %q", err)
+		}
+
+		converted := api.NodeAddressType(a)
+		if converted != x.expect {
+			t.Errorf("%v != %v", x.expect, converted)
 		}
 		if err != nil {
 			continue

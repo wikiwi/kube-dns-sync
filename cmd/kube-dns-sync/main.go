@@ -18,7 +18,7 @@ import (
 	"k8s.io/kubernetes/federation/pkg/dnsprovider"
 
 	"github.com/wikiwi/kube-dns-sync/pkg/controller"
-	k8sutil "github.com/wikiwi/kube-dns-sync/pkg/util/kubernetes"
+	"k8s.io/kubernetes/pkg/api"
 )
 
 func main() {
@@ -33,14 +33,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if opts.ApexAddressType == "" && len(opts.AddressTypes.Types) == 0 {
+	if opts.ApexAddressType == "" && len(opts.AddressTypes) == 0 {
 		fmt.Println("neither --address-types nor --apex-address-type is specified")
 		os.Exit(1)
-	}
-
-	apexAddressType := k8sutil.StringToAddressType(opts.ApexAddressType)
-	if apexAddressType == "" && opts.ApexAddressType != "" {
-		panic("invalid address type")
 	}
 
 	dump, err := yaml.Marshal(opts)
@@ -57,8 +52,8 @@ func main() {
 		TTL:             opts.TTL,
 		ZoneName:        opts.ZoneName,
 		SyncInterval:    opts.SyncInterval,
-		AddressTypes:    opts.AddressTypes.Types,
-		ApexAddressType: apexAddressType,
+		AddressTypes:    opts.AddressTypes,
+		ApexAddressType: api.NodeAddressType(opts.ApexAddressType),
 	})
 	if err != nil {
 		panic(err)

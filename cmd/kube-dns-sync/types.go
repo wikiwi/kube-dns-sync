@@ -14,36 +14,49 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 )
 
-type addressTypes struct {
-	Types []api.NodeAddressType
-}
+type addressTypes []api.NodeAddressType
 
 func (a addressTypes) MarshalFlag() (string, error) {
 	var s string
-	for _, x := range a.Types {
+	for _, x := range a {
 		if s != "" {
 			s += ","
 		}
-		s += strings.ToLower(string(x))
+		tmp, err := (addressType(x)).MarshalFlag()
+		if err != nil {
+			return "", err
+		}
+		s += tmp
 	}
 	return s, nil
 }
 
 func (a *addressTypes) UnmarshalFlag(value string) error {
-	a.Types = []api.NodeAddressType{}
 	parts := strings.Split(value, ",")
 	for _, x := range parts {
-		found := false
-		for _, t := range []api.NodeAddressType{api.NodeInternalIP, api.NodeExternalIP, api.NodeLegacyHostIP} {
-			if x == strings.ToLower(string(t)) {
-				a.Types = append(a.Types, t)
-				found = true
-				break
-			}
+		var add addressType
+		err := add.UnmarshalFlag(x)
+		if err != nil {
+			return err
 		}
-		if !found {
-			return fmt.Errorf("Invalid value %q", x)
-		}
+		*a = append(*a, api.NodeAddressType(add))
 	}
 	return nil
+}
+
+type addressType api.NodeAddressType
+
+func (a addressType) MarshalFlag() (string, error) {
+	return strings.ToLower(string(a)), nil
+}
+
+func (a *addressType) UnmarshalFlag(value string) error {
+	for _, t := range []api.NodeAddressType{api.NodeInternalIP, api.NodeExternalIP, api.NodeLegacyHostIP} {
+		stringified := strings.ToLower(string(t))
+		if value == stringified {
+			*a = addressType(t)
+			return nil
+		}
+	}
+	return fmt.Errorf("Invalid value %q", value)
 }
