@@ -73,10 +73,11 @@ build-for-docker: ${BINARIES:%= bin/linux/amd64/%}
 .PHONY: docker-build
 docker-build: build-for-docker
 	${DOCKER} build --pull -t ${IMAGE} \
-		--build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-		--build-arg VCS_REF=${GIT_SHA} \
-		--build-arg VCS_VERSION=${BUILD_VERSION} \
-		--build-arg BUILD_URL=$$(test -n "$${TRAVIS_BUILD_ID}" && echo https://travis-ci.org/${GITHUB_USER}/${GITHUB_REPO}/builds/$${TRAVIS_BUILD_ID}) \
+		--build-arg "BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"`" \
+		--build-arg "VCS_REF=${GIT_SHA}" \
+		--build-arg "VCS_VERSION=${BUILD_VERSION}" \
+		--build-arg "VCS_MESSAGE=$$(git log --oneline -n1 --pretty=%B | head -n1)" \
+		--build-arg "BUILD_URL=$$(test -n "$${TRAVIS_BUILD_ID}" && echo https://travis-ci.org/${GITHUB_USER}/${GITHUB_REPO}/builds/$${TRAVIS_BUILD_ID})" \
 		.
 
 # docker-push will push all tags to the repository

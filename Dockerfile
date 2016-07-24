@@ -4,6 +4,7 @@ ARG BUILD_DATE
 ARG BUILD_URL
 ARG VCS_REF
 ARG VCS_VERSION
+ARG VCS_MESSAGE
 
 RUN apk add --no-cache ca-certificates
 
@@ -14,7 +15,8 @@ LABEL org.label-schema.build-date=${BUILD_DATE} \
       org.label-schema.vendor=wikiwi.io \
       org.label-schema.name=kube-dns-sync \
       io.wikiwi.build-url=${BUILD_URL} \
-      io.wikiwi.license=MIT
+      io.wikiwi.license=MIT \
+      io.wikiwi.vcs-msg=${VCS_MESSAGE}
 
 COPY bin/linux/amd64/ /usr/bin/
 
