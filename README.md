@@ -48,8 +48,6 @@ Adapt and save the manifest below. Create deployment using `kubectl create -f my
           labels:
             app: kube-dns-sync
         spec:
-          securityContext:
-            runAsUser: 10000
           containers:
           - name: kube-dns-sync
             image: wikiwi/kube-dns-sync
