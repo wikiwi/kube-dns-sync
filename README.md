@@ -34,7 +34,36 @@
 The authorization mechanics are the same as for Kubernetes Federation. A link will be put here as soon as Kubernetes releases an official documentation for its Federation Service. 
 
 *note:* `google-clouddns` requires the scope `https://www.googleapis.com/auth/ndev.clouddns.readwrite`.
+## Example
+Adapt and save the manifest below. Create deployment using `kubectl create -f my-deployment.yaml`.
 
+    apiVersion: extensions/v1beta1
+    kind: Deployment
+    metadata:
+      name: kube-dns-sync
+    spec:
+      replicas: 1
+      template:
+        metadata:
+          labels:
+            app: kube-dns-sync
+        spec:
+          securityContext:
+            runAsUser: 10000
+          containers:
+          - name: kube-dns-sync
+            image: wikiwi/kube-dns-sync
+            env:
+            - name: KDS_ADDRESS_TYPES
+              value: internalip
+            - name: KDS_APEX_ADDRESS_TYPE
+              value: externalip
+            - name: KDS_ZONE_NAME
+              value: example.io.
+            - name: KDS_PROVIDER
+              value: google-clouddns
+            - name: KDS_SELECTOR
+              value: wikiwi.io/dns-sync!=false
 ## Flags and Environment Variables
     Usage:
       kube-dns-sync [OPTIONS]
@@ -53,3 +82,7 @@ The authorization mechanics are the same as for Kubernetes Federation. A link wi
     
     Help Options:
       -h, --help                                                   Show this help message
+
+## Troubleshooting
+- DNS zone is not created by the controller, make sure it exists.
+- Make sure you use the correct DNS zone name with a dot at the end.
