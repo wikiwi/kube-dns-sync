@@ -21,7 +21,7 @@
 - You need to access your Nodes using a fixed DNS record.
 
 ## How it works
-`kube-dns-sync` watches the Kubernetes API for changes in the Node resources and syncs the IP addresses to the DNS zone. When `--apex-address-type` is set, `kube-dns-sync` will sync the IP addresses of specified type from the Nodes to the A Record of the apex zone (root domain). Setting `--address-types` will create a managed A Record for each specifed type e.g. `internalip.example.com.`, `externalip.example.com` with the addresses from each Node.
+`kube-dns-sync` watches the Kubernetes API for changes in the Node resources and syncs the IP addresses to the DNS zone. When `--apex-address-type` is set, `kube-dns-sync` will sync the IP addresses of specified type from the Nodes to the A Record of the apex zone (root domain). Setting `--address-types` will create a managed A Record for each specifed type e.g. `internalip.example.com.`, `externalip.example.com.` with the addresses from each Node.
 
 ## Disadvantages
 - `kube-dns-sync` only checks the health of Nodes and is unaware of your application.
