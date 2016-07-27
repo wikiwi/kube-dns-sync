@@ -9,7 +9,7 @@ GITHUB_REPO ?= kube-dns-sync
 
 ### Docker settings ###
 DOCKER_REPO    ?= wikiwi/kube-dns-sync
-LATEST_VERSION := canary
+LATEST_VERSION := 0.1
 
 ### GO settings ###
 GO_PACKAGE  ?= github.com/${GITHUB_USER}/${GITHUB_REPO}
