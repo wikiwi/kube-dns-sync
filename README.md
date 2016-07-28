@@ -31,7 +31,7 @@
 `kube-dns-sync` uses the DNS module of Kubernetes Federation and therefore supports the same DNS services. At the time of writing the supported services are 'google-clouddns' and 'aws-route53'.
 
 ## Authorization
-The authorization mechanics are the same as for Kubernetes Federation. A link will be put here as soon as Kubernetes releases an official documentation for its Federation Service. 
+The authorization mechanics are the same as for Kubernetes Federation. A link will be put here as soon as Kubernetes releases an official documentation for its Federation Service.
 
 *note:* `google-clouddns` requires the scope `https://www.googleapis.com/auth/ndev.clouddns.readwrite`.
 ## Example
@@ -50,7 +50,7 @@ Adapt and save the manifest below. Create deployment using `kubectl create -f my
         spec:
           containers:
           - name: kube-dns-sync
-            image: wikiwi/kube-dns-sync
+            image: wikiwi/kube-dns-sync:0.1.0
             env:
             - name: KDS_ADDRESS_TYPES
               value: internalip
@@ -65,7 +65,7 @@ Adapt and save the manifest below. Create deployment using `kubectl create -f my
 ## Flags and Environment Variables
     Usage:
       kube-dns-sync [OPTIONS]
-    
+
     Application Options:
           --dns-provider=[aws-route53|google-clouddns]             DNS provider [$KDS_PROVIDER]
           --dns-provider-config=                                   Path to config file for configuring DNS provider [$KDS_PROVIDER_CONFIG]
@@ -77,7 +77,7 @@ Adapt and save the manifest below. Create deployment using `kubectl create -f my
           --selector=                                              Node selector e.g. 'cloud.google.com/gke-nodepool=default-pool' [$KDS_SELECTOR]
           --verbose                                                Turn on verbose logging
       -v, --version                                                Show version number
-    
+
     Help Options:
       -h, --help                                                   Show this help message
 
