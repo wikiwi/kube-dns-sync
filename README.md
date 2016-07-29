@@ -4,7 +4,8 @@
 [![Build Status Widget]][Build Status]
 [![Coverage Status Widget]][Coverage Status]
 [![Code Climate Widget]][Code Climate]
-[![MicroBadger Version Widget]][MicroBadger Version]
+[![MicroBadger Version Widget]][MicroBadger URL]
+[![MicroBadger Image Widget]][MicroBadger URL]
 
 [Build Status]: https://travis-ci.org/wikiwi/kube-dns-sync
 [Build Status Widget]: https://travis-ci.org/wikiwi/kube-dns-sync.svg?branch=master
@@ -12,8 +13,9 @@
 [Coverage Status Widget]: https://coveralls.io/repos/github/wikiwi/kube-dns-sync/badge.svg?branch=master
 [Code Climate]: https://codeclimate.com/github/wikiwi/kube-dns-sync
 [Code Climate Widget]: https://codeclimate.com/github/wikiwi/kube-dns-sync/badges/gpa.svg
-[MicroBadger Version]: http://microbadger.com/#/images/wikiwi/kube-dns-sync
+[MicroBadger URL]: http://microbadger.com/#/images/wikiwi/kube-dns-sync
 [MicroBadger Version Widget]: https://images.microbadger.com/badges/version/wikiwi/kube-dns-sync.svg
+[MicroBadger Image Widget]: https://images.microbadger.com/badges/image/wikiwi/kube-dns-sync.svg
 
 ## Use-Case
 - You want to avoid using a load balancer or can't use one to expose your Kubernetes Services.
@@ -62,6 +64,7 @@ Adapt and save the manifest below. Create deployment using `kubectl create -f my
               value: google-clouddns
             - name: KDS_SELECTOR
               value: wikiwi.io/dns-sync!=false
+
 ## Flags and Environment Variables
     Usage:
       kube-dns-sync [OPTIONS]
